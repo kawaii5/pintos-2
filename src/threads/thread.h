@@ -93,6 +93,13 @@ struct thread
     struct list donors;
     //used to place the threads correctly in the donors list
     struct list_elem donor_elem;
+
+    struct list f_list;
+    int fd;
+    struct list c_list;
+    tid_t par;
+    struct child_process* cp;
+    struct file* exec_file;
     //-----------END ADDED------------
 
    /* Owned by thread.c. */
@@ -127,6 +134,8 @@ void priority_check (void);
 void priority_donor (void);
 void donor_unlock (struct lock *lock);
 void update_priority (void);
+
+bool living_thread(int pid);
 //-----END ADDED--------
 
 void thread_init (void);

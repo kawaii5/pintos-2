@@ -11,8 +11,10 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -73,7 +75,7 @@ static tid_t allocate_tid (void);
 
 //----------ADDED--------------
 //used to sort elements in to the sleeping_list 
-bool
+/*bool
 sleep_comparator (const struct list_elem *one, const struct list_elem *two, void *aux UNUSED)
 {
   struct thread *onethread = list_entry(one, struct thread, elem);
@@ -167,6 +169,19 @@ update_priority (void)
   {
     t->priority = le_t->priority;
   }
+}*/
+
+bool 
+living_thread(int pid)
+{
+  struct list_elem* le;
+  for(le = list_begin(&all_list); le != list_end(&all_list); le = list_next(le))
+  {
+    struct thread* curr = list_entry(le, struct thread, allelem);
+    if(curr->tid = pid)
+      return true;
+  }
+  return false;
 }
 //---------END ADDED-------------------
 
@@ -306,11 +321,15 @@ thread_create (const char *name, int priority,
 
   intr_set_level (old_level);
 
+  t->par = thread_tid();
+  struct child_process* cp = add_cp(t->tid);
+  t->cp = cp;
+
   /* Add to run queue. */
   thread_unblock (t);
   
   //ensures highest priority is running
-  priority_check();
+  //priority_check();
 
   return tid;
 }
@@ -326,12 +345,12 @@ thread_block (void)
 {
   struct thread *t = thread_current();
   
-  ASSERT (is_thread(t));
+  //ASSERT (is_thread(t));
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
 
   t->status = THREAD_BLOCKED;
-  schedule ();
+  schedule();
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -352,7 +371,8 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   //inserts the elem into the ready_list ordered
-  list_insert_ordered(&ready_list, &t->elem, &priority_comparator, NULL);
+  //list_insert_ordered(&ready_list, &t->elem, &priority_comparator, NULL);
+  list_push_back(&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -407,6 +427,8 @@ thread_exit (void)
      when it calls thread_schedule_tail(). */
   intr_disable ();
   list_remove (&thread_current()->allelem);
+  //if(thread_current()->exec_file)
+    //file_close(thread_current()->exec_file);
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -427,7 +449,8 @@ thread_yield (void)
   if (t != idle_thread)
     {
       //inserts the elem into the ready_list in order
-      list_insert_ordered(&ready_list, &t->elem, &priority_comparator, NULL);
+      //list_insert_ordered(&ready_list, &t->elem, &priority_comparator, NULL);
+      list_push_back(&ready_list, &t->elem);
     }
   t->status = THREAD_READY;
   schedule ();
@@ -457,10 +480,10 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  int old_priority = thread_current()->priority;
+  //int old_priority = thread_current()->priority;
   //sets the initial priority of the current thread to the new priority before using donor's priority
   thread_current ()->priority_initial = new_priority;
-  update_priority();
+  /*update_priority();
   struct thread *t = thread_current();
   if (old_priority < t->priority)
   {
@@ -469,7 +492,7 @@ thread_set_priority (int new_priority)
   if (old_priority > t->priority)
   {
     priority_check();
-  }
+  }*/
 }
 //---------------END CHANGED------------------
 
@@ -600,9 +623,17 @@ init_thread (struct thread *t, const char *name, int priority)
   list_push_back (&all_list, &t->allelem);
   
   //initializes added data members of the thread struct
-  t->sleepy_lock = NULL;
+  /*t->sleepy_lock = NULL;
   t->priority_initial = priority;
-  list_init(&t->donors);
+  list_init(&t->donors);*/
+
+  list_init(&t->f_list);
+  t->fd = 2;
+
+  list_init(&t->c_list);
+  t->cp = NULL;
+  t->par = -1;
+  t->exec_file = NULL;
 }
 //-------------END CHANGED--------------
 
